@@ -1,0 +1,178 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.example.ocean2.mapper.ObserveDataQueryMapper">
+    
+    <resultMap id="dataSet_resultMap" type="com.example.ocean2.pojo.other.DataSet">
+        <id property="dataSetID" column="dataset_id"/>
+        <result property="dataSetName" column="dataset_name"/>
+        <result property="description" column="description"/>
+    </resultMap>
+    <select id="getDataSets" resultMap="dataSet_resultMap">
+        SELECT dataset_id,dataset_name,`description`
+        FROM dataset
+    </select>
+    
+    
+    
+    
+    <resultMap id="seaSite_resultMap" type="com.example.ocean2.pojo.other.SeaSite">
+        <id property="seaSiteID" column="seasite_id"/>
+        <result property="seaSiteName" column="seasite_name"/>
+        <result property="lat" column="lat"/>
+        <result property="lon" column="lon"/>
+    </resultMap>
+    <select id="getSeaSites" resultMap="seaSite_resultMap">
+        SELECT seasite_id, seasite_name, lat, lon
+        FROM seasite
+        WHERE seasite_id
+        IN (SELECT DISTINCT(seasite_id)
+            FROM obv_dataset_relation
+            WHERE dataset_id = #{setID}
+            )
+    </select>
+
+
+
+    <resultMap id="getSstObvs_ResultMap" type="com.example.ocean2.pojo.obv.SstObv">
+        <id property="sstObvID" column="sst_obv_id"/>
+        <result property="date" column="date"/>
+        <result property="maxSst" column="max_sst"/>
+        <result property="minSst" column="min_sst"/>
+        <result property="avgSst" column="avg_sst"/>
+    </resultMap>
+    <select id="getSstObvs" resultMap="getSstObvs_ResultMap">
+        SELECT sst_obv.sst_obv_id,
+                `satisfied_sst_obv`.`date`,
+                max_sst ,
+                min_sst,
+                avg_sst
+        FROM sst_obv
+        NATURAL JOIN
+            (SELECT sst_obv_id,`date`
+            FROM obv_dataset_relation
+            <where>
+                dataset_id = #{datasetID}
+                AND
+                seasite_id = #{seaSiteID}
+                <if test="startDate != null">
+                    AND `date` &gt;=#{startDate}
+                </if>
+                <if test="endDate != null">
+                    AND `date` &lt;=#{endDate}
+                </if>
+            </where>
+        ) AS `satisfied_sst_obv`
+        ORDER BY `date`
+    </select>
+
+
+
+
+    <resultMap id="getWindObvs_ResultMap" type="com.example.ocean2.pojo.obv.WindObv">
+        <id property="windObvID" column="wind_obv_id"/>
+        <result property="date" column="date"/>
+        <result property="maxSpeed" column="max_speed"/>
+        <result property="minSpeed" column="min_speed"/>
+        <result property="avgSpeed" column="avg_speed"/>
+        <result property="direction" column="direction"/>
+    </resultMap>
+    <select id="getWindObvs" resultMap="getWindObvs_ResultMap">
+        SELECT  wind_obv.wind_obv_id,
+                `satisfied_wind_obv`.`date`,
+                max_speed,
+                min_speed,
+                avg_speed,
+                direction
+        FROM wind_obv
+        NATURAL JOIN
+            (SELECT wind_obv_id,`date`
+            FROM obv_dataset_relation
+            <where>
+                dataset_id = #{datasetID}
+                AND
+                seasite_id = #{seaSiteID}
+                <if test="startDate != null">
+                    AND `date` &gt;=#{startDate}
+                </if>
+                <if test="endDate != null">
+                    AND `date` &lt;=#{endDate}
+                </if>
+            </where>
+        ) AS `satisfied_wind_obv`
+        ORDER BY `date`
+    </select>
+
+
+    <resultMap id="getAirObv_ResultMap" type="com.example.ocean2.pojo.obv.AirObv">
+        <id property="airObvID" column="air_obv_id"/>
+        <result property="date" column="date"/>
+        <result property="temp" column="temp"/>
+        <result property="pressure" column="pressure"/>
+        <result property="visibility" column="visibility"/>
+    </resultMap>
+    <select id="getAirObvs" resultMap="getAirObv_ResultMap">
+        SELECT   air_obv.air_obv_id,
+                `satisfied_air_obv`.`date`,
+                temp,
+                pressure,
+                visibility
+        FROM air_obv
+        NATURAL JOIN
+            (SELECT air_obv_id,`date`
+            FROM obv_dataset_relation
+            <where>
+                dataset_id = #{datasetID}
+                AND
+                seasite_id = #{seaSiteID}
+                <if test="startDate != null">
+                    AND `date` &gt;=#{startDate}
+                </if>
+                <if test="endDate != null">
+                    AND `date` &lt;=#{endDate}
+                </if>
+            </where>
+            ) AS `satisfied_air_obv`
+        ORDER BY `date`
+    </select>
+
+    <resultMap id="getNcFiles_ResultMap" type="com.example.ocean2.pojo.obv.NcFile">
+        <id property="ncFileID" column="ncfile_id"/>
+        <result property="ncFileName" column="ncfile_name"/>
+        <result property="startDate" column="start_time"/>
+        <result property="endDate" column="end_time"/>
+    </resultMap>
+    <select id="getNcFiles" resultMap="getNcFiles_ResultMap">
+        SELECT ncfile_id, ncfile_name, start_time, end_time
+        FROM ncfile
+        WHERE #{queryDate} &gt;= start_time
+        AND #{queryDate} &lt; end_time
+    </select>
+
+    <resultMap id="getNcData_ResultMap" type="com.example.ocean2.pojo.obv.NcData">
+        <result property="lat" column="lat"/>
+        <result property="lng" column="lon"/>
+        <result property="count" column="sst"/>
+    </resultMap>
+    <select id="getNcData" resultMap="getNcData_ResultMap">
+        SELECT lat, lon, sst
+        FROM ncdata
+        WHERE #{ncFileID} = ncfile_id
+    </select>
+
+    <resultMap id="getNcFiles_ResultMapX" type="com.example.ocean2.pojo.obv.NcFile">
+        <id property="ncFileID" column="ncfile_id"/>
+        <result property="startDate" column="start_time"/>
+        <result property="endDate" column="end_time"/>
+    </resultMap>
+    <select id="getNcFilesX" resultMap="getNcFiles_ResultMapX">
+        SELECT ncfile_id, start_time, end_time
+        FROM ncfile
+        WHERE #{startDate} &lt;= start_time
+        AND #{endDate} &gt;= end_time
+    </select>
+
+
+</mapper>

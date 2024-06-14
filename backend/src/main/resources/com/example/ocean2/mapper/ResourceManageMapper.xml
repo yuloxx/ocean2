@@ -1,0 +1,263 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.example.ocean2.mapper.ResourceManageMapper">
+
+    <resultMap id="getFacilities_ResultMap" type="com.example.ocean2.pojo.other.Facility">
+        <id property="facilityID" column="facility_id"/>
+        <result property="seaSiteID" column="seasite_id"/>
+        <result property="facilityName" column="facility_name"/>
+        <result property="description" column="description"/>
+    </resultMap>
+    <select id="getFacilities" resultMap="getFacilities_ResultMap">
+        SELECT facility_id, seasite_id, facility_name, description
+        FROM facility
+    </select>
+
+    <resultMap id="getResourceViews_ResultMap" type="com.example.ocean2.pojo.resource.ResourceView">
+        <id property="resourceID" column="resource_id"/>
+        <result property="resourceName" column="resource_name"/>
+        <result property="unitName" column="unit_name"/>
+        <result property="lat" column="lat"/>
+        <result property="lon" column="lon"/>
+        <result property="hasQuota" column="has_quota"/>
+        <result property="quota" column="quota"/>
+    </resultMap>
+    <select id="getResourceViews" resultMap="getResourceViews_ResultMap">
+        SELECT  `resource_view_tmp`.resource_id,
+                `resource_type`.resource_name,
+                `resource_type`.unit_name,
+                `resource_view_tmp`.lat,
+                `resource_view_tmp`.lon,
+                `resource_type`.has_quota,
+                `resource_view_tmp`.quota
+        FROM (
+            SELECT  `resource`.resource_id,
+                    `resource`.resource_type_id,
+                    `resource`.quota,
+                    `seasite`.lat,
+                    `seasite`.lon
+            FROM    `resource` NATURAL JOIN `seasite`
+            <where>
+                <if test="resourceTypeID != null">
+                    `resource`.resource_type_id = #{resourceTypeID}
+                </if>
+            </where>
+            ) AS `resource_view_tmp`
+        NATURAL JOIN `resource_type`
+    </select>
+
+    <resultMap id="getResourceType_ResultMap" type="com.example.ocean2.pojo.resource.ResourceType">
+        <id property="resourceTypeID" column="resource_type_id"/>
+        <result property="resourceName" column="resource_name"/>
+        <result property="unitName" column="unit_name"/>
+        <result property="hasQuota" column="has_quota"/>
+    </resultMap>
+    <select id="getResourceType" resultMap="getResourceType_ResultMap">
+        SELECT resource_type_id, resource_name, unit_name, has_quota
+        FROM resource_type
+    </select>
+
+    <resultMap id="getSeaSites_ResultMap" type="com.example.ocean2.pojo.other.SeaSite">
+        <id property="seaSiteID" column="seasite_id"/>
+        <result property="seaSiteName" column="seasite_name"/>
+        <result property="lat" column="lat"/>
+        <result property="lon" column="lon"/>
+    </resultMap>
+    <select id="getSeaSites" resultMap="getSeaSites_ResultMap">
+            SELECT  seasite_id, seasite_name, lat, lon
+            FROM    seasite
+        <if test="seaSiteIDList != null">
+            WHERE   seasite_id
+            IN
+            <foreach collection="seaSiteIDList" item="seaSiteID" open="(" separator="," close=")">
+                #{seaSiteID}
+            </foreach>
+        </if>
+    </select>
+
+    <resultMap id="getResourceExploitView_ResultMap" type="com.example.ocean2.pojo.resource.ResourceExploitView">
+        <id property="recordID" column="record_id"/>
+        <result property="date" column="date"/>
+        <result property="facilityName" column="facility_name"/>
+        <result property="resourceName" column="resource_name"/>
+        <result property="amount" column="amount"/>
+        <result property="unitName" column="unit_name"/>
+        <result property="lat" column="lat"/>
+        <result property="lon" column="lon"/>
+    </resultMap>
+    <select id="getResourceExploitViews" resultMap="getResourceExploitView_ResultMap">
+        WITH `satisfied_resource_exploit_record` AS (
+        SELECT record_id,facility_id,resource_id,`date`,amount
+        FROM resource_exploit_record
+        <where>
+            <if test="facilityID != null">
+                AND facility_id = #{facilityID}
+            </if>
+            <if test="startDate != null">
+                AND `date` &gt;= #{startDate}
+            </if>
+            <if test="endDate != null">
+                AND `date` &lt;= #{endDate}
+            </if>
+        </where>
+        )
+        SELECT
+            `satisfied_resource_exploit_facility_view`.record_id,
+            `satisfied_resource_exploit_facility_view`.`date`,
+            `satisfied_resource_exploit_facility_view`.`facility_name`,
+            `satisfied_resource_view`.resource_name,
+            `satisfied_resource_exploit_facility_view`.amount,
+            `satisfied_resource_view`.unit_name,
+            `satisfied_resource_view`.lat,
+            `satisfied_resource_view`.lon
+        FROM
+            ( SELECT
+                `satisfied_resource_exploit_record`.record_id,
+                `satisfied_resource_exploit_record`.resource_id,
+                `satisfied_resource_exploit_record`.`date`,
+                `satisfied_resource_exploit_record`.`amount`,
+                `facility`.facility_name
+            FROM
+                `satisfied_resource_exploit_record` NATURAL JOIN facility
+            ) AS `satisfied_resource_exploit_facility_view`
+            NATURAL JOIN
+            ( SELECT
+                resource_id,
+                resource_name,
+                unit_name,
+                lat,
+                lon
+            FROM `resource_view`
+            <where>
+                <if test="resourceTypeID != null">
+                    resource_type_id = #{resourceTypeID}
+                </if>
+            </where>
+            ) AS `satisfied_resource_view`
+        ORDER BY `satisfied_resource_exploit_facility_view`.`date`
+    </select>
+
+    <select id="listResourceExploitRecordID" resultType="java.lang.Integer">
+        SELECT record_id
+        FROM resource_exploit_record
+        <where>
+            <if test="facilityID != null">
+                AND facility_id = #{facilityID}
+            </if>
+            <if test="resourceID != null">
+                AND resource_id = #{resourceID}
+            </if>
+        </where>
+    </select>
+
+    <select id="listResourceID" resultType="java.lang.Integer">
+        SELECT resource_id
+        FROM `resource`
+        WHERE resource_type_id = #{resourceTypeID}
+    </select>
+
+    <select id="countResourceType" resultType="java.lang.Integer">
+        SELECT count(*)
+        FROM resource_type
+        <where>
+            resource_type_id = #{resourceTypeID}
+        </where>
+    </select>
+
+    <select id="countResource" resultType="java.lang.Integer">
+        SELECT count(*)
+        FROM resource
+        <where>
+            resource_id = #{resourceID}
+        </where>
+    </select>
+
+    <select id="countSeaSite" resultType="java.lang.Integer">
+        SELECT count(*)
+        FROM seasite
+        <where>
+            seasite_id = #{seaSiteID}
+        </where>
+    </select>
+
+    <select id="countFacility" resultType="java.lang.Integer">
+        SELECT count(*)
+        FROM facility
+        <where>
+            facility_id = #{facilityID}
+        </where>
+    </select>
+
+    <resultMap id="getFacilityViews_ResultMap" type="com.example.ocean2.pojo.other.FacilityView">
+        <id property="facilityID" column="facility_id"/>
+        <result property="facilityName" column="facility_name"/>
+        <result property="description" column="description"/>
+        <result property="lat" column="lat"/>
+        <result property="lon" column="lon"/>
+    </resultMap>
+    <select id="getFacilityViews" resultMap="getFacilityViews_ResultMap">
+        SELECT facility_id,facility_name,`description`,lat,lon
+        FROM facility NATURAL JOIN seasite
+    </select>
+
+
+    <insert id="insertFacility" useGeneratedKeys="true" keyProperty="facilityID" keyColumn="facility_id">
+        INSERT INTO facility(seasite_id, facility_name, `description`)
+        VALUES
+        (#{seaSiteID},#{facilityName},#{description})
+    </insert>
+
+    <insert id="insertResourceType" useGeneratedKeys="true"
+            keyProperty="resourceTypeID" keyColumn="resource_type_id">
+        INSERT INTO resource_type(resource_name, unit_name, has_quota)
+        VALUES
+        (#{resourceName},#{unitName},#{hasQuota})
+    </insert>
+
+    <insert id="insertResource" useGeneratedKeys="true"
+            keyProperty="resourceID" keyColumn="resource_id">
+        INSERT INTO `resource`(resource_type_id, seasite_id, quota)
+        VALUES
+        (#{resourceTypeID},#{seaSiteID},#{quota})
+    </insert>
+    
+    <insert id="insertResourceExploitRecord" useGeneratedKeys="true"
+            keyProperty="recordID" keyColumn="record_id">
+        INSERT INTO resource_exploit_record(facility_id, resource_id, `date`, amount)
+        VALUES
+        (#{facilityID}, #{resourceID}, #{date}, #{amount})
+    </insert>
+
+    <insert id="insertSeaSite" useGeneratedKeys="true" keyProperty="seaSiteID" keyColumn="seasite_id">
+        INSERT INTO seasite(seasite_name,lat,lon)
+        VALUES
+        (#{seaSiteName},#{lat},#{lon})
+    </insert>
+
+    <delete id="delFacility">
+        DELETE FROM facility
+        WHERE facility_id = #{facilityID}
+    </delete>
+
+    <delete id = "delResourceType">
+        DELETE FROM resource_type
+        WHERE resource_type_id = #{resourceTypeID}
+    </delete>
+
+    <delete id = "delResource">
+        DELETE FROM `resource`
+        WHERE resource_id = #{resourceID}
+    </delete>
+
+    <delete id = "delResourceExploitRecord">
+        DELETE FROM resource_exploit_record
+        WHERE record_id 
+        IN
+        <foreach collection="resourceExploitRecordIDList" item="rerID" open="(" separator="," close=")">
+            #{rerID}
+        </foreach>
+    </delete>
+</mapper>
